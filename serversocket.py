@@ -28,7 +28,10 @@ c.execute(
     )
     """
 )
-conn.close()
+
+conn.commit()
+c.close()
+
 
 def log_involved_message(id, message):
     with open(LOG_FILE, "a") as file:
@@ -42,7 +45,6 @@ def insert_message(id, message, hash):
     c.execute("INSERT INTO messages (id, message, hash) VALUES (?, ?, ?)", (id, message, hash))
     conn.commit()
     c.close()
-    conn.close()
 
 
 def check_id_exists(id):
@@ -51,8 +53,8 @@ def check_id_exists(id):
     c.execute("SELECT * FROM messages WHERE id=?", (id,))
     result = c.fetchone() is not None
     c.close()
-    conn.close()
     return result
+
 
 def update_rep_attempt(id):
     conn = sqlite3.connect(DB)
@@ -60,7 +62,7 @@ def update_rep_attempt(id):
     c.execute("UPDATE messages SET rep_attempt = rep_attempt + 1 WHERE id = ?", (id,))
     conn.commit()
     c.close()
-    conn.close()
+
 
 def insert_mod_attempt(id, message, hash):
     conn = sqlite3.connect(DB)
@@ -68,17 +70,19 @@ def insert_mod_attempt(id, message, hash):
     c.execute("INSERT INTO messages (id, message, hash, is_mod) VALUES (?, ?, ?, 1)", (id, message, hash))
     conn.commit()
     c.close()
-    conn.close()
+
 
 def calculate_kpi():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
     total_messages = c.execute("SELECT COUNT(*) FROM messages WHERE is_mod < 1").fetchone()[0]
     total_replicated_attempts = c.execute("SELECT SUM(rep_attempt) FROM messages").fetchone()[0]
+    if total_replicated_attempts is None:
+        total_replicated_attempts = 0
     total_modified_attempts = c.execute("SELECT COUNT(*) FROM messages WHERE is_mod > 0").fetchone()[0]
     c.close()
-    conn.close()
     return total_messages, total_modified_attempts, total_replicated_attempts
+
 
 def report_kpi():
     total_messages, total_modified_attempts, total_replicated_attempts = calculate_kpi()
@@ -102,7 +106,7 @@ while True:
             data_list = data.split(SEP)
             if len(data_list) != 3:
                 print("Invalid data received")
-                
+                continue
             nonce = data_list[0]
             message = data_list[1]
             hash_rec = data_list[2]
@@ -120,6 +124,14 @@ while True:
                     if not message:
                         print("No data received")
                     else:
-                        print("Received", message.decode("utf-8"))
-                        insert_message(nonce, message, hash_rec)
+                        message = message.decode("utf-8")
+                        message_list = message.split(", ")
+                        if len(message_list) != 3:
+                            print("Invalid message received")
+                        else:
+                            if not message_list[0].isdigit() or not message_list[1].isdigit() or not message_list[2].isdigit():
+                                print("Invalid message received")
+                            else:
+                                print("Message received:", message)
+                                insert_message(nonce, message, hash_rec)
             report_kpi()

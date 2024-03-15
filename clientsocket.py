@@ -21,7 +21,20 @@ def generate_nonce(sim_same_nonce=False):
 
 sim_same_nonce = input("Simulate same nonce? (y/n): ").strip().lower() == "y"
 sim_mitm = input("Simulate MITM attack? (y/n): ").strip().lower() == "y"
-message = bytes(input("Press Enter to send a message: "), "utf-8")
+acc_origin = input("Account origin: ").strip()
+acc_dest = input("Account destination: ").strip()
+amount = input("Amount: ").strip()
+
+message = f"{acc_origin}, {acc_dest}, {amount}"
+message = bytes(message, "utf-8")
+
+if not acc_origin or not acc_dest or not amount:
+    print("You must inform all fields")
+    exit(1)
+
+if not acc_origin.isdigit() or not acc_dest.isdigit() or not amount.isdigit():
+    print("Invalid input")
+    exit(1)
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
