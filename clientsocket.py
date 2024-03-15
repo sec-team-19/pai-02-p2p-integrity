@@ -20,6 +20,8 @@ def generate_nonce(sim_same_nonce=False):
 
 
 sim_same_nonce = input("Simulate same nonce? (y/n): ").strip().lower() == "y"
+if sim_same_nonce:
+    print("Send another message with same nonce to simulate a reply attack.")
 sim_mitm = input("Simulate MITM attack? (y/n): ").strip().lower() == "y"
 acc_origin = input("Account origin: ").strip()
 acc_dest = input("Account destination: ").strip()
