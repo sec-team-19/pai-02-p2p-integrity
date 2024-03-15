@@ -20,6 +20,8 @@ c.execute(
         id TEXT PRIMARY KEY NOT NULL,
         message TEXT NOT NULL,
         hash TEXT NOT NULL,
+        is_mod INTEGER DEFAULT 0,
+        rep_attempt INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )
     """
@@ -45,6 +47,40 @@ def check_id_exists(id):
     conn.close()
     return result
 
+def update_rep_attempt(id):
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("UPDATE messages SET rep_attempt = rep_attempt + 1 WHERE id = ?", (id,))
+    conn.commit()
+    c.close()
+    conn.close()
+
+def insert_mod_attempt(id, message, hash):
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("INSERT INTO messages (id, message, hash, is_mod) VALUES (?, ?, ?, 1)", (id, message, hash))
+    conn.commit()
+    c.close()
+    conn.close()
+
+def calculate_kpi():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    total_messages = c.execute("SELECT COUNT(*) FROM messages WHERE is_mod < 1").fetchone()[0]
+    total_replicated_attempts = c.execute("SELECT SUM(rep_attempt) FROM messages").fetchone()[0]
+    total_modified_attempts = c.execute("SELECT COUNT(*) FROM messages WHERE is_mod > 0").fetchone()[0]
+    c.close()
+    conn.close()
+    return total_messages, total_modified_attempts, total_replicated_attempts
+
+def report_kpi():
+    total_messages, total_modified_attempts, total_replicated_attempts = calculate_kpi()
+    print("Total modification attempts:", total_modified_attempts)
+    print("Total replication attempts:", total_replicated_attempts)
+    print("Total messages received:", total_messages)
+    integration_ratio = total_messages / (total_messages + total_modified_attempts + total_replicated_attempts)
+    print("INTEGRATION RATIO:", round(integration_ratio, 3))
+
 
 print("Server is running and listening for incoming connections in port", PORT)
 
@@ -65,9 +101,11 @@ while True:
             hash_rec = data_list[2]
             hash = hmac.new(KEY, nonce + SEP + message, "sha3_256").digest()
             if check_id_exists(nonce):
+                update_rep_attempt(nonce)
                 print("Message already received, discarding message")
             else:
                 if hash != hash_rec:
+                    insert_mod_attempt(nonce, message, hash_rec)
                     print("Hashes do not match, message integrity compromised")
                 else:
                     if not message:
@@ -75,3 +113,4 @@ while True:
                     else:
                         print("Received", message.decode("utf-8"))
                         insert_message(nonce, message, hash_rec)
+            report_kpi()
