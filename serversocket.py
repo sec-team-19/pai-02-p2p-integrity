@@ -10,7 +10,7 @@ PORT = 3030  # Port to listen on (non-privileged ports are > 1023)
 KEY = b"IN$3GU$/s3k-t34m-n1n3t3en"
 DB = "pai-02-p2p-integrity.db"
 SEP = b"|||"
-LOG_FILE = "compromised_messages.log"
+LOG_FILE = "involved_messages.log"
 
 # create a database connection
 
@@ -30,10 +30,10 @@ c.execute(
 )
 conn.close()
 
-def log_compromised_message(id, message):
+def log_involved_message(id, message):
     with open(LOG_FILE, "a") as file:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        file.write(f"{timestamp}: Message ID {id} compromised - Message: {message}\n")
+        file.write(f"{timestamp}: Message ID {id} involved - Message: {message}\n")
 
 
 def insert_message(id, message, hash):
@@ -109,12 +109,12 @@ while True:
             hash = hmac.new(KEY, nonce + SEP + message, "sha3_256").digest()
             if check_id_exists(nonce):
                 update_rep_attempt(nonce)
-                log_compromised_message(nonce, message.decode("utf-8"))
+                log_involved_message(nonce, message.decode("utf-8"))
                 print("Message already received, discarding message")
             else:
                 if hash != hash_rec:
                     insert_mod_attempt(nonce, message, hash_rec)
-                    log_compromised_message(nonce, message.decode("utf-8"))
+                    log_involved_message(nonce, message.decode("utf-8"))
                     print("Hashes do not match, message integrity compromised")
                 else:
                     if not message:
